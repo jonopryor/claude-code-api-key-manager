@@ -1,4 +1,4 @@
-# Claude API Key Manager
+# Claude Code API Key Manager
 
 A simple bash-based tool to manage multiple Claude API keys for different projects and easily switch between them.
 
