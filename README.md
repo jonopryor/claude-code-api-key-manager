@@ -1,4 +1,17 @@
+
 # Claude Code API Key Manager
+
+## TL;DR
+
+Install the prerequisites and run then ```menu.sh``` script.
+
+### Prerequisites
+
+```bash
+sudo apt-get install jq
+#or 
+brew install jq
+```
 
 A simple bash-based tool to manage multiple Claude API keys for different projects and easily switch between them.
 
