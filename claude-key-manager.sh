@@ -3,7 +3,17 @@
 KEYS_FILE="$HOME/claude-api-project-keys.json"
 CLAUDE_CONFIG="$HOME/.claude.json"
 
+check_dependencies() {
+    if ! command -v jq >/dev/null 2>&1; then
+        echo "Error: jq is required but not installed. Please install jq first."
+        echo "On macOS: brew install jq"
+        echo "On Ubuntu/Debian: sudo apt-get install jq"
+        exit 1
+    fi
+}
+
 initialize_files() {
+    check_dependencies
     if [ ! -f "$KEYS_FILE" ]; then
         echo '{}' > "$KEYS_FILE"
     fi
@@ -29,7 +39,7 @@ get_json_value() {
         return 1
     fi
     
-    grep -o "\"$key\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$file" | sed 's/.*":\s*"//' | sed 's/".*//'
+    grep -o "\"$key\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$file" | sed 's/.*":[[:space:]]*"//' | sed 's/".*//'
 }
 
 get_current_key() {
@@ -80,7 +90,7 @@ add_key_internal() {
     initialize_files
     
     if [ -s "$KEYS_FILE" ] && [ "$(cat "$KEYS_FILE")" != "{}" ]; then
-        sed -i "s/}$/,\"$project_name\":\"$api_key\"}/" "$KEYS_FILE"
+        sed -i "" "s/}$/,\"$project_name\":\"$api_key\"}/" "$KEYS_FILE"
     else
         echo "{\"$project_name\":\"$api_key\"}" > "$KEYS_FILE"
     fi
@@ -128,9 +138,9 @@ remove_key() {
     temp_file=$(mktemp)
     grep -v "\"$selected_key\"" "$KEYS_FILE" > "$temp_file"
     
-    sed -i 's/,{/\n{/g; s/},{/}\n{/g' "$temp_file"
-    sed -i '/^$/d' "$temp_file"
-    sed -i 's/,,/,/g; s/,}/}/g; s/{,/{/g' "$temp_file"
+    sed -i "" 's/,{/\n{/g; s/},{/}\n{/g' "$temp_file"
+    sed -i "" '/^$/d' "$temp_file"
+    sed -i "" 's/,,/,/g; s/,}/}/g; s/{,/{/g' "$temp_file"
     
     if [ ! -s "$temp_file" ] || [ "$(cat "$temp_file" | tr -d '[:space:]')" = "{}" ]; then
         echo '{}' > "$KEYS_FILE"
@@ -147,17 +157,30 @@ update_claude_config() {
     
     initialize_files
     
+    # Create a temporary file
+    local temp_file=$(mktemp)
+    
     if grep -q "primaryApiKey" "$CLAUDE_CONFIG"; then
-        sed -i "s/\"primaryApiKey\"[[:space:]]*:[[:space:]]*\"[^\"]*\"/\"primaryApiKey\":\"$api_key\"/" "$CLAUDE_CONFIG"
-    else
-        if [ "$(cat "$CLAUDE_CONFIG" | tr -d '[:space:]')" = "{}" ]; then
-            echo "{\"primaryApiKey\":\"$api_key\"}" > "$CLAUDE_CONFIG"
+        # If primaryApiKey exists, update it
+        if jq --arg key "$api_key" '.primaryApiKey = $key' "$CLAUDE_CONFIG" > "$temp_file"; then
+            mv "$temp_file" "$CLAUDE_CONFIG"
+            echo "Updated Claude configuration with selected key."
         else
-            sed -i "s/}$/,\"primaryApiKey\":\"$api_key\"}/" "$CLAUDE_CONFIG"
+            echo "Error: Failed to update Claude configuration."
+            rm -f "$temp_file"
+            return 1
+        fi
+    else
+        # If primaryApiKey doesn't exist, add it
+        if jq --arg key "$api_key" '. + {"primaryApiKey": $key}' "$CLAUDE_CONFIG" > "$temp_file"; then
+            mv "$temp_file" "$CLAUDE_CONFIG"
+            echo "Updated Claude configuration with selected key."
+        else
+            echo "Error: Failed to update Claude configuration."
+            rm -f "$temp_file"
+            return 1
         fi
     fi
-    
-    echo "Updated Claude configuration with selected key."
 }
 
 main_menu() {
