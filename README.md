@@ -3,7 +3,7 @@
 
 ## TL;DR
 
-Install the prerequisites and run then ```menu.sh``` script.
+Install the prerequisites and then run the ```menu.sh``` script.
 
 ### Prerequisites
 
